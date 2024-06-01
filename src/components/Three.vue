@@ -73,6 +73,7 @@ let guiControls: IGuiControls = {
 		control.detach()
 		scene.remove(INTERSECTED)
 		resetGuiControl()
+		render()
 	},
 	newGeometry: () => {
 		loadGeometry(guiControls.geometry)
@@ -194,7 +195,12 @@ function initGui(): void {
 			'albedo-wood',
 		]
 	).onChange((value) => {
-		TextureMap.map = new THREE.TextureLoader().load(`textures/albedo/${value}.png`, render);
+		const texture = new THREE.TextureLoader().load(`textures/albedo/${value}.png`, render);
+		texture.wrapS = 2048
+		texture.wrapT = 2048
+		texture.colorSpace = THREE.SRGBColorSpace;
+		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+		TextureMap.map = texture
 		console.log(INTERSECTED.material)
 		INTERSECTED.material = new THREE.MeshStandardMaterial({
 			map: TextureMap.map,
@@ -213,7 +219,13 @@ function initGui(): void {
 			'metalness-wood',
 		]
 	).onChange((value) => {
-		TextureMap.metalnessMap = new THREE.TextureLoader().load(`textures/metalness/${value}.png`, render);
+		const texture = new THREE.TextureLoader().load(`textures/metalness/${value}.png`, render);
+		texture.wrapS = 2048
+		texture.wrapT = 2048
+		texture.colorSpace = THREE.SRGBColorSpace;
+		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+		TextureMap.metalnessMap  = texture
 
 		INTERSECTED.material = new THREE.MeshStandardMaterial({
 			map: TextureMap.map,
@@ -233,7 +245,13 @@ function initGui(): void {
 			'roughness-wood',
 		]
 	).onChange((value) => {
-		TextureMap.roughnessMap = new THREE.TextureLoader().load(`textures/roughness/${value}.png`, render);
+		const texture = new THREE.TextureLoader().load(`textures/roughness/${value}.png`, render);
+		texture.wrapS = 2048
+		texture.wrapT = 2048
+		texture.colorSpace = THREE.SRGBColorSpace;
+		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+		TextureMap.roughnessMap = texture
 
 		INTERSECTED.material = new THREE.MeshStandardMaterial({
 			map: TextureMap.map,
@@ -251,7 +269,14 @@ function initGui(): void {
 			'normal-wood',
 		]
 	).onChange((value) => {
-		TextureMap.normalMap = new THREE.TextureLoader().load(`textures/normal/${value}.png`, render);
+
+		const texture = new THREE.TextureLoader().load(`textures/normal/${value}.png`, render);
+		texture.wrapS = 0
+		texture.wrapT = 2048
+		texture.colorSpace = THREE.SRGBColorSpace;
+		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+		TextureMap.normalMap = texture
 
 		INTERSECTED.material = new THREE.MeshStandardMaterial({
 			map: TextureMap.map,
@@ -306,6 +331,9 @@ function loadGeometry(geometry: string): void {
 }
 function loadScene()  {
 	const jsonScene = localStorage.getItem('scene');
+	if(jsonScene === null){
+		return 'saved scene not found'
+	}
 	return new THREE.ObjectLoader().parse(JSON.parse(jsonScene));
 }
 function rayCast(): void {
