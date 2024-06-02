@@ -1,14 +1,16 @@
 <template>
-	<Gui :position="position" @geometryChange="loadGeometry" @positionChange="setIntersectedPosition" />
+	<Gui :position="position" @geometryChange="loadGeometry" @positionChange="setIntersectedPosition"
+		@materialChange="setMaterial" @delete="deleteMesh" @save="saveScene" />
 </template>
 <script setup lang="ts">
 import * as THREE from 'three';
 import Stats from 'three/addons/libs/stats.module.js';
-import { ref} from 'vue';
+import { ref } from 'vue';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import { get, set } from 'idb-keyval';
 import Gui from './Gui.vue';
 
 const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 1, 500);
@@ -18,13 +20,11 @@ const raycaster = new THREE.Raycaster();
 const stats = new Stats();
 
 const loader = new GLTFLoader();
-const gui = new GUI();
+const ktx2Loader = new KTX2Loader().setTranscoderPath( 'basis/' ).detectSupport( renderer );
 
-const position = ref({x: 0, y: 0, z: 0})
+const position = ref({ x: 0, y: 0, z: 0 })
 
-let scene = localStorage.getItem('scene') !== null ? loadScene() : new THREE.Scene();
-
-
+let scene = new THREE.Scene();
 
 let INTERSECTED: any;
 const pointer = new THREE.Vector2();
@@ -44,71 +44,14 @@ let TextureMap: ITextureMap = {
 }
 
 
-interface IGuiControls {
-	x: number,
-	y: number,
-	z: number,
-	geometryText: string,
-	albedoText: string,
-	metalnessText: string,
-	roughnessText: string,
-	normalText: string,
-	geometry: string,
-	metalness: 0,
-	roughness: 0,
-	deleteMesh: () => void
-	newGeometry: () => void
-	saveScene: () => void
-}
-
-let guiControls: IGuiControls = {
-	x: 0,
-	y: 0,
-	z: 0,
-	geometryText: 'select geometry',
-	albedoText: 'select albedo',
-	metalnessText: 'select metalness',
-	roughnessText: 'select roughness',
-	normalText: 'select normal',
-	geometry: '',
-	metalness: 0,
-	roughness: 0,
-	deleteMesh: () => {
-		control.detach()
-		scene.remove(INTERSECTED)
-		resetGuiControl()
-		render()
-	},
-	newGeometry: () => {
-		loadGeometry(guiControls.geometry)
-	},
-	saveScene: () => {
-		control.detach();
-		scene.remove(control);
-		const jsonScene = scene.toJSON();
-		localStorage.clear()
-		localStorage.setItem('scene', JSON.stringify(jsonScene));
-	},
-
-}
-
-function resetGuiControl(): void {
-	guiControls.geometryText = 'select geometry'
-	guiControls.albedoText = 'select albedo'
-	guiControls.metalnessText = 'select metalness'
-	guiControls.roughnessText = 'select roughness'
-	guiControls.normalText = 'select normal'
-	guiControls.metalness = 0
-	guiControls.roughness = 0
-	guiControls.x = 0
-	guiControls.y = 0
-	guiControls.z = 0
-}
-
 init();
-initGui();
 
-function init(): void {
+async function init() {
+	try {
+		scene = await loadScene()
+	} catch (error) {
+		console.log('saved scene not found')
+	}
 
 	document.body.appendChild(stats.dom);
 
@@ -119,10 +62,7 @@ function init(): void {
 
 	control.addEventListener('change', render);
 	control.addEventListener('objectChange', () => {
-		guiControls.x = INTERSECTED.position.x
-		guiControls.y = INTERSECTED.position.y
-		guiControls.z = INTERSECTED.position.z
-		position.value = {x: INTERSECTED.position.x, y: INTERSECTED.position.y, z: INTERSECTED.position.z}
+		position.value = { x: INTERSECTED.position.x, y: INTERSECTED.position.y, z: INTERSECTED.position.z }
 	})
 
 	control.addEventListener('dragging-changed', function (event) {
@@ -157,118 +97,9 @@ function init(): void {
 	render()
 
 }
-function initGui(): void {
 
-	const settings = gui.addFolder('Object Settings');
-
-	settings.add(guiControls, 'albedoText',
-		[
-			'albedo-metal',
-			'albedo-velours',
-			'albedo-wood',
-		]
-	).onChange((value) => {
-		const textureURL = `textures/albedo/${value}.png`
-		TextureToMaterial(textureURL, 'map')
-		render()
-	}).listen()
-
-	settings.add(guiControls, 'metalnessText',
-		[
-			'metalness-metal',
-			'metalness-velours',
-			'metalness-wood',
-		]
-	).onChange((value) => {
-		const textureURL = `textures/metalness/${value}.png`
-		TextureToMaterial(textureURL, 'metalnessMap')
-
-		render()
-	}).listen()
-
-	function TextureToMaterial(URL: string, map: keyof ITextureMap) {
-		const texture = new THREE.TextureLoader().load(URL, render);
-		texture.wrapS = THREE.RepeatWrapping
-		texture.wrapT = THREE.RepeatWrapping
-		texture.colorSpace = THREE.SRGBColorSpace;
-		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-		TextureMap[map] = texture
-
-		INTERSECTED.material = new THREE.MeshStandardMaterial({
-			map: TextureMap.map,
-			normalMap: TextureMap.normalMap,
-			metalnessMap: TextureMap.metalnessMap,
-			roughnessMap: TextureMap.roughnessMap
-		})
-	}
-
-	settings.add(guiControls, 'roughnessText',
-		[
-			'roughness-metal',
-			'roughness-velours',
-			'roughness-wood',
-		]
-	).onChange((value) => {
-		const texture = new THREE.TextureLoader().load(`textures/roughness/${value}.png`, render);
-		texture.wrapS = THREE.RepeatWrapping
-		texture.wrapT = THREE.RepeatWrapping
-		texture.colorSpace = THREE.SRGBColorSpace;
-		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
-		TextureMap.roughnessMap = texture
-
-		INTERSECTED.material = new THREE.MeshStandardMaterial({
-			map: TextureMap.map,
-			normalMap: TextureMap.normalMap,
-			metalnessMap: TextureMap.metalnessMap,
-			roughnessMap: TextureMap.roughnessMap
-		})
-		render()
-	}).listen()
-
-	settings.add(guiControls, 'normalText',
-		[
-			'normal-metal',
-			'normal-velours',
-			'normal-wood',
-		]
-	).onChange((value) => {
-
-		const texture = new THREE.TextureLoader().load(`textures/normal/${value}.png`, render);
-		texture.wrapS = THREE.RepeatWrapping
-		texture.wrapT = THREE.RepeatWrapping
-		//texture.colorSpace = THREE.SRGBColorSpace;
-		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
-		TextureMap.normalMap = texture
-
-		INTERSECTED.material = new THREE.MeshStandardMaterial({
-			map: TextureMap.map,
-			normalMap: TextureMap.normalMap,
-			metalnessMap: TextureMap.metalnessMap,
-			roughnessMap: TextureMap.roughnessMap
-		})
-		render()
-	}).listen()
-
-	settings.add(guiControls, 'metalness', 0, 1, 0.001).onChange((value) => {
-
-		INTERSECTED.material.metalness = value
-
-		render()
-	}).listen()
-
-	settings.add(guiControls, 'roughness', 0, 1, 0.001).onChange((value) => {
-
-		INTERSECTED.material.roughness = value
-
-		render()
-	}).listen()
-
-	settings.add(guiControls, 'deleteMesh')
-}
 function setIntersectedPosition(event: { x: number, y: number, z: number }) {
-	INTERSECTED.position.set(event.x/100, event.y /100, event.z / 100)
+	INTERSECTED.position.set(event.x, event.y, event.z)
 	render()
 }
 function onWindowResize() {
@@ -287,6 +118,50 @@ function onPointerMove(event: { clientX: number; clientY: number; }) {
 
 }
 
+async function TextureToMaterial(URL: string, map: keyof ITextureMap) {
+	const texture = URL.split('.')[1] === 'ktx2' ? await ktx2Loader.loadAsync(URL) : new THREE.TextureLoader().load(URL, render)
+	texture.wrapS = THREE.RepeatWrapping
+	texture.wrapT = THREE.RepeatWrapping
+	texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+	if (map !== 'normalMap') texture.colorSpace = THREE.SRGBColorSpace;
+
+	TextureMap[map] = texture
+}
+interface IMaterial {
+	map: null | string,
+	normalMap: null | string,
+	metalnessMap: null | string,
+	roughnessMap: null | string
+}
+async function setMaterial(material: IMaterial) {
+	material.map !== null ? await TextureToMaterial(material.map, 'map') : null
+	material.normalMap !== null ? await TextureToMaterial(material.normalMap, 'normalMap') : null
+	material.metalnessMap !== null ? await TextureToMaterial(material.metalnessMap, 'metalnessMap') : null
+	material.roughnessMap !== null ? await TextureToMaterial(material.roughnessMap, 'roughnessMap') : null
+	for (const children of INTERSECTED.children) {
+		children.material = new THREE.MeshStandardMaterial({
+			map: TextureMap.map,
+			normalMap: TextureMap.normalMap,
+			metalnessMap: TextureMap.metalnessMap,
+			roughnessMap: TextureMap.roughnessMap
+		})
+		for (const subChildren of children.children) {
+			subChildren.material = new THREE.MeshStandardMaterial({
+				map: TextureMap.map,
+				normalMap: TextureMap.normalMap,
+				metalnessMap: TextureMap.metalnessMap,
+				roughnessMap: TextureMap.roughnessMap
+			})
+		}
+	}
+	INTERSECTED.material = new THREE.MeshStandardMaterial({
+		map: TextureMap.map,
+		normalMap: TextureMap.normalMap,
+		metalnessMap: TextureMap.metalnessMap,
+		roughnessMap: TextureMap.roughnessMap
+	})
+}
+
 function loadGeometry(geometry: string): void {
 	console.log(geometry)
 	loader.load(`geometries/${geometry}.glb`, function (gltf) {
@@ -298,12 +173,29 @@ function loadGeometry(geometry: string): void {
 
 	});
 }
+
+function deleteMesh() {
+	control.detach()
+	scene.remove(INTERSECTED)
+	render()
+}
+function saveScene() {
+	control.detach();
+	scene.remove(control);
+	const jsonScene = scene.toJSON();
+	set('scene', JSON.stringify(jsonScene));
+}
 function loadScene() {
-	const jsonScene = localStorage.getItem('scene');
-	if (jsonScene === null) {
-		return 'saved scene not found'
-	}
-	return new THREE.ObjectLoader().parse(JSON.parse(jsonScene));
+	return new Promise<any>(function (resolve, reject) {
+		get('scene').then((val) => {
+			try {
+				resolve(new THREE.ObjectLoader().parse(JSON.parse(val)))
+			} catch (error) {
+				reject(error)
+			}
+
+		});
+	});
 }
 function rayCast(): void {
 	raycaster.setFromCamera(pointer, camera);
@@ -314,11 +206,7 @@ function rayCast(): void {
 
 			if (intersects[0].object.type !== "GridHelper") {
 				INTERSECTED = intersects[0].object;
-				resetGuiControl()
-				position.value = {x: INTERSECTED.position.x, y: INTERSECTED.position.y, z: INTERSECTED.position.z}
-				guiControls.x = INTERSECTED.position.x
-				guiControls.y = INTERSECTED.position.y
-				guiControls.z = INTERSECTED.position.z
+				position.value = { x: INTERSECTED.position.x, y: INTERSECTED.position.y, z: INTERSECTED.position.z }
 				control.attach(INTERSECTED);
 			}
 
@@ -333,8 +221,4 @@ function render(): void {
 }
 </script>
 
-<style scoped>
-.read-the-docs {
-	color: #888;
-}
-</style>
+<style scoped></style>
