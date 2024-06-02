@@ -3,8 +3,8 @@ import Three from './components/Three.vue'
 </script>
 
 <template>
-  <Three/>
+    <Three />
+
 </template>
 
-<style scoped>
-</style>
+<style scoped></style>

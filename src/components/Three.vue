@@ -1,13 +1,15 @@
 <template>
-
+	<Gui :position="position" @geometryChange="loadGeometry" @positionChange="setIntersectedPosition" />
 </template>
 <script setup lang="ts">
 import * as THREE from 'three';
 import Stats from 'three/addons/libs/stats.module.js';
+import { ref} from 'vue';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import Gui from './Gui.vue';
 
 const camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 1, 500);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -18,8 +20,10 @@ const stats = new Stats();
 const loader = new GLTFLoader();
 const gui = new GUI();
 
+const position = ref({x: 0, y: 0, z: 0})
+
 let scene = localStorage.getItem('scene') !== null ? loadScene() : new THREE.Scene();
-	
+
 
 
 let INTERSECTED: any;
@@ -118,6 +122,7 @@ function init(): void {
 		guiControls.x = INTERSECTED.position.x
 		guiControls.y = INTERSECTED.position.y
 		guiControls.z = INTERSECTED.position.z
+		position.value = {x: INTERSECTED.position.x, y: INTERSECTED.position.y, z: INTERSECTED.position.z}
 	})
 
 	control.addEventListener('dragging-changed', function (event) {
@@ -153,40 +158,8 @@ function init(): void {
 
 }
 function initGui(): void {
-	gui.add(guiControls, 'geometryText',
-		['chair',
-			'cube',
-			'helmet',
-			'suzanne']
-	).onChange(value => guiControls.geometry = value)
-
-
-	gui.add(guiControls, 'newGeometry')
-
 
 	const settings = gui.addFolder('Object Settings');
-	const sceneSettings = gui.addFolder('Scene Settings');
-
-	sceneSettings.add(guiControls, 'saveScene')
-
-	settings.add(guiControls, 'x', -10, 10, 0.0000001).onChange((value) => {
-
-		console.log(INTERSECTED)
-		INTERSECTED.position.set(value, INTERSECTED.position.y, INTERSECTED.position.z)
-		render()
-	}).listen()
-	settings.add(guiControls, 'y', -10, 10, 0.0000001).onChange((value) => {
-
-		console.log(INTERSECTED)
-		INTERSECTED.position.set(INTERSECTED.position.x, value, INTERSECTED.position.z)
-		render()
-	}).listen()
-	settings.add(guiControls, 'z', -10, 10, 0.0000001).onChange((value) => {
-
-		console.log(INTERSECTED)
-		INTERSECTED.position.set(INTERSECTED.position.x, INTERSECTED.position.y, value)
-		render()
-	}).listen()
 
 	settings.add(guiControls, 'albedoText',
 		[
@@ -195,20 +168,8 @@ function initGui(): void {
 			'albedo-wood',
 		]
 	).onChange((value) => {
-		const texture = new THREE.TextureLoader().load(`textures/albedo/${value}.png`, render);
-		texture.wrapS = 2048
-		texture.wrapT = 2048
-		texture.colorSpace = THREE.SRGBColorSpace;
-		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-		TextureMap.map = texture
-		console.log(INTERSECTED.material)
-		INTERSECTED.material = new THREE.MeshStandardMaterial({
-			map: TextureMap.map,
-			normalMap: TextureMap.normalMap,
-			metalnessMap: TextureMap.metalnessMap,
-			roughnessMap: TextureMap.roughnessMap
-		})
-
+		const textureURL = `textures/albedo/${value}.png`
+		TextureToMaterial(textureURL, 'map')
 		render()
 	}).listen()
 
@@ -219,13 +180,19 @@ function initGui(): void {
 			'metalness-wood',
 		]
 	).onChange((value) => {
-		const texture = new THREE.TextureLoader().load(`textures/metalness/${value}.png`, render);
-		texture.wrapS = 2048
-		texture.wrapT = 2048
+		const textureURL = `textures/metalness/${value}.png`
+		TextureToMaterial(textureURL, 'metalnessMap')
+
+		render()
+	}).listen()
+
+	function TextureToMaterial(URL: string, map: keyof ITextureMap) {
+		const texture = new THREE.TextureLoader().load(URL, render);
+		texture.wrapS = THREE.RepeatWrapping
+		texture.wrapT = THREE.RepeatWrapping
 		texture.colorSpace = THREE.SRGBColorSpace;
 		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
-		TextureMap.metalnessMap  = texture
+		TextureMap[map] = texture
 
 		INTERSECTED.material = new THREE.MeshStandardMaterial({
 			map: TextureMap.map,
@@ -233,10 +200,7 @@ function initGui(): void {
 			metalnessMap: TextureMap.metalnessMap,
 			roughnessMap: TextureMap.roughnessMap
 		})
-		render()
-	}).listen()
-
-
+	}
 
 	settings.add(guiControls, 'roughnessText',
 		[
@@ -246,8 +210,8 @@ function initGui(): void {
 		]
 	).onChange((value) => {
 		const texture = new THREE.TextureLoader().load(`textures/roughness/${value}.png`, render);
-		texture.wrapS = 2048
-		texture.wrapT = 2048
+		texture.wrapS = THREE.RepeatWrapping
+		texture.wrapT = THREE.RepeatWrapping
 		texture.colorSpace = THREE.SRGBColorSpace;
 		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
@@ -271,9 +235,9 @@ function initGui(): void {
 	).onChange((value) => {
 
 		const texture = new THREE.TextureLoader().load(`textures/normal/${value}.png`, render);
-		texture.wrapS = 0
-		texture.wrapT = 2048
-		texture.colorSpace = THREE.SRGBColorSpace;
+		texture.wrapS = THREE.RepeatWrapping
+		texture.wrapT = THREE.RepeatWrapping
+		//texture.colorSpace = THREE.SRGBColorSpace;
 		texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
 
 		TextureMap.normalMap = texture
@@ -303,6 +267,10 @@ function initGui(): void {
 
 	settings.add(guiControls, 'deleteMesh')
 }
+function setIntersectedPosition(event: { x: number, y: number, z: number }) {
+	INTERSECTED.position.set(event.x/100, event.y /100, event.z / 100)
+	render()
+}
 function onWindowResize() {
 
 	camera.aspect = window.innerWidth / window.innerHeight;
@@ -320,6 +288,7 @@ function onPointerMove(event: { clientX: number; clientY: number; }) {
 }
 
 function loadGeometry(geometry: string): void {
+	console.log(geometry)
 	loader.load(`geometries/${geometry}.glb`, function (gltf) {
 		scene.add(gltf.scene.children[0]);
 		render();
@@ -329,9 +298,9 @@ function loadGeometry(geometry: string): void {
 
 	});
 }
-function loadScene()  {
+function loadScene() {
 	const jsonScene = localStorage.getItem('scene');
-	if(jsonScene === null){
+	if (jsonScene === null) {
 		return 'saved scene not found'
 	}
 	return new THREE.ObjectLoader().parse(JSON.parse(jsonScene));
@@ -346,6 +315,7 @@ function rayCast(): void {
 			if (intersects[0].object.type !== "GridHelper") {
 				INTERSECTED = intersects[0].object;
 				resetGuiControl()
+				position.value = {x: INTERSECTED.position.x, y: INTERSECTED.position.y, z: INTERSECTED.position.z}
 				guiControls.x = INTERSECTED.position.x
 				guiControls.y = INTERSECTED.position.y
 				guiControls.z = INTERSECTED.position.z
