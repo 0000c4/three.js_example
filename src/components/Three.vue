@@ -34,14 +34,16 @@ interface ITextureMap {
 	map: THREE.Texture | null,
 	normalMap: THREE.Texture | null,
 	metalnessMap: THREE.Texture | null,
-	roughnessMap: THREE.Texture | null
+	roughnessMap: THREE.Texture | null,
+	aoMap: THREE.Texture | null, //sheen
 }
 
 let TextureMap: ITextureMap = {
 	map: null,
 	normalMap: null,
 	metalnessMap: null,
-	roughnessMap: null
+	roughnessMap: null,
+	aoMap: null, //sheen
 }
 
 
@@ -132,26 +134,30 @@ interface IMaterial {
 	map: null | string,
 	normalMap: null | string,
 	metalnessMap: null | string,
-	roughnessMap: null | string
+	roughnessMap: null | string,
+	aoMap: null | string
 }
 async function setMaterial(material: IMaterial) {
 	material.map !== null ? await TextureToMaterial(material.map, 'map') : null
 	material.normalMap !== null ? await TextureToMaterial(material.normalMap, 'normalMap') : null
 	material.metalnessMap !== null ? await TextureToMaterial(material.metalnessMap, 'metalnessMap') : null
 	material.roughnessMap !== null ? await TextureToMaterial(material.roughnessMap, 'roughnessMap') : null
+	material.aoMap !== null ? await TextureToMaterial(material.aoMap, 'aoMap') : null
 	for (const children of INTERSECTED.children) {
 		children.material = new THREE.MeshStandardMaterial({
 			map: TextureMap.map,
 			normalMap: TextureMap.normalMap,
 			metalnessMap: TextureMap.metalnessMap,
-			roughnessMap: TextureMap.roughnessMap
+			roughnessMap: TextureMap.roughnessMap,
+			aoMap: TextureMap.aoMap
 		})
 		for (const subChildren of children.children) {
 			subChildren.material = new THREE.MeshStandardMaterial({
 				map: TextureMap.map,
 				normalMap: TextureMap.normalMap,
 				metalnessMap: TextureMap.metalnessMap,
-				roughnessMap: TextureMap.roughnessMap
+				roughnessMap: TextureMap.roughnessMap,
+				aoMap: TextureMap.aoMap
 			})
 		}
 	}
@@ -159,7 +165,8 @@ async function setMaterial(material: IMaterial) {
 		map: TextureMap.map,
 		normalMap: TextureMap.normalMap,
 		metalnessMap: TextureMap.metalnessMap,
-		roughnessMap: TextureMap.roughnessMap
+		roughnessMap: TextureMap.roughnessMap,
+		aoMap: TextureMap.aoMap
 	})
 }
 

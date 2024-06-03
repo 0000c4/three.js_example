@@ -57,6 +57,13 @@
                     <option value="textures/roughness/roughness-wood.png">roughness-wood</option>
                 </select>
             </div>
+            <div class="material_row">
+                <label for="sheen">sheen</label>
+                <select name="sheen" v-model="material.aoMap" @click="() => { $emit('materialChange', material) }">
+                    <option value="textures/sheen/sheen-velours.png">sheen-velours</option>
+                </select>
+            </div>
+
             <div class=buttton_container>
                 <button @click="() => $emit('delete')">Delete object</button>
                 <button @click="() => $emit('save')">Save Scene</button>
@@ -88,7 +95,8 @@ watch(
             map: null,
             normalMap: null,
             metalnessMap: null,
-            roughnessMap: null
+            roughnessMap: null,
+            aoMap: null
         }
     },
 )
@@ -99,7 +107,8 @@ const material = ref({
     map: null,
     normalMap: null,
     metalnessMap: null,
-    roughnessMap: null
+    roughnessMap: null,
+    aoMap: null
 })
 
 </script>
