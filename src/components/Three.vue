@@ -1,6 +1,6 @@
 <template>
 	<Gui :position="position" @geometryChange="loadGeometry" @positionChange="setIntersectedPosition"
-		@materialChange="setMaterial" @delete="deleteMesh" @save="saveScene" />
+		@materialChange="setMaterial" @delete="deleteMesh" @save="saveScene" :resetData="resetGuiData"/>
 </template>
 <script setup lang="ts">
 import * as THREE from 'three';
@@ -23,6 +23,7 @@ const loader = new GLTFLoader();
 const ktx2Loader = new KTX2Loader().setTranscoderPath( 'basis/' ).detectSupport( renderer );
 
 const position = ref({ x: 0, y: 0, z: 0 })
+const resetGuiData = ref(false);
 
 let scene = new THREE.Scene();
 
@@ -163,7 +164,7 @@ async function setMaterial(material: IMaterial) {
 }
 
 function loadGeometry(geometry: string): void {
-	console.log(geometry)
+	
 	loader.load(`geometries/${geometry}.glb`, function (gltf) {
 		scene.add(gltf.scene.children[0]);
 		render();
@@ -177,6 +178,8 @@ function loadGeometry(geometry: string): void {
 function deleteMesh() {
 	control.detach()
 	scene.remove(INTERSECTED)
+	position.value = { x: 0, y: 0, z: 0 }
+	resetGuiData.value = !resetGuiData.value
 	render()
 }
 function saveScene() {
@@ -205,9 +208,11 @@ function rayCast(): void {
 		if (INTERSECTED != intersects[0].object) {
 
 			if (intersects[0].object.type !== "GridHelper") {
+				resetGuiData.value = !resetGuiData.value
 				INTERSECTED = intersects[0].object;
-				position.value = { x: INTERSECTED.position.x, y: INTERSECTED.position.y, z: INTERSECTED.position.z }
 				control.attach(INTERSECTED);
+				position.value = { x: INTERSECTED.position.x, y: INTERSECTED.position.y, z: INTERSECTED.position.z }
+				
 			}
 
 		}
